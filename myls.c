@@ -41,7 +41,14 @@ int main(int argc, char *argv[])
             break;
         }
     }
-    if ((dirp = opendir(".")) == NULL)
+    //check if a path is given as an argument
+    if(optind < argc){
+        dirp = opendir(argv[optind]);
+    }
+    else{
+        dirp = opendir(".");
+    }
+    if (dirp == NULL)
     {
         perror("opendir");
         exit(1);
