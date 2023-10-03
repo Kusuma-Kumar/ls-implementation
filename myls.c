@@ -11,20 +11,80 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <linux/limits.h>
+#include <limits.h>
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
 #include <stdbool.h>
+
+void printFileDetails(const char *path, struct stat fileInfo)
+{
+    struct passwd *owner;
+    struct group *grp;
+    extern int errno;
+    // File permissions
+    printf((S_ISDIR(fileInfo.st_mode)) ? "d" : "-");
+    printf((fileInfo.st_mode & S_IRUSR) ? "r" : "-");
+    printf((fileInfo.st_mode & S_IWUSR) ? "w" : "-");
+    printf((fileInfo.st_mode & S_IXUSR) ? "x" : "-");
+    printf((fileInfo.st_mode & S_IRGRP) ? "r" : "-");
+    printf((fileInfo.st_mode & S_IWGRP) ? "w" : "-");
+    printf((fileInfo.st_mode & S_IXGRP) ? "x" : "-");
+    printf((fileInfo.st_mode & S_IROTH) ? "r" : "-");
+    printf((fileInfo.st_mode & S_IWOTH) ? "w" : "-");
+    printf((fileInfo.st_mode & S_IXOTH) ? "x" : "-");
+    // links
+    printf(" %hu", fileInfo.st_nlink);
+
+    // owner
+    errno = 0;
+    if ((owner = getpwuid(fileInfo.st_uid)) != NULL)
+    {
+        printf(" %s", owner->pw_name);
+    }
+    else
+    {
+        perror("getpwuid");
+        exit(5);
+    }
+    // group
+    errno = 0;
+    if ((grp = getgrgid(fileInfo.st_gid)) != NULL)
+    {
+        printf(" %s", grp->gr_name);
+    }
+    else
+    {
+        perror("getgrgid");
+        exit(6);
+    }
+    // size
+    printf(" %lld", fileInfo.st_size);
+    // modification time
+    time_t modTime = fileInfo.st_mtime;
+    char formattedTime[PATH_MAX];
+    // "%b %d %R" fromat for month in short, date and 24 hour time
+    if (strftime(formattedTime, sizeof(formattedTime), "%b %d %R", localtime(&modTime)))
+    {
+        printf(" %s", formattedTime);
+    }
+    else
+    {
+        // strftime may return value 0 but does not necessarily indicate an error.
+        fprintf(stderr, "strftime failed\n");
+    }
+    // Print file name
+    printf(" %s\n", path);
+}
 
 int main(int argc, char *argv[])
 {
     int opt;
     bool flagA = false;
     bool flagL = false;
-    DIR *dirp;
-    struct dirent *dir;
-    struct stat fileStatus;
+    extern int optind, errno;
+    // optind=0;
+    //printf("optind: %d\n", optind);
     while ((opt = getopt(argc, argv, "la")) != -1)
     {
         switch (opt)
@@ -37,91 +97,64 @@ int main(int argc, char *argv[])
             /* List all files non hidden files with details*/
             flagL = true;
             break;
+        case '?':
+            break;
         default:
+            // list all non hidden file-names
             break;
         }
     }
-    //check if a path is given as an argument
-    if(optind < argc){
-        dirp = opendir(argv[optind]);
-    }
-    else{
-        dirp = opendir(".");
-    }
-    if (dirp == NULL)
+    //printf("optind: %d\n", optind);
+    //check if a path is given as an argument, getopt will change value of optind to store the position of first "non-optional" argument
+    char *path = (optind < argc) ? argv[optind] : ".";
+    struct stat fileInfo;
+    if (stat(path, &fileInfo) == -1)
     {
-        perror("opendir");
+        perror("stat");
         exit(1);
     }
+    // check if path given is a file, S_ISREG returns 0 is it is not a regular file
+    if (S_ISREG(fileInfo.st_mode)!=0)
+    {
+        // If it's a regular file print its details
+        printFileDetails(path, fileInfo);
+        return 0;
+    }
+    DIR *dirp = NULL;
+    if ((dirp = opendir(path)) == NULL)
+    {
+        perror("opendir");
+        exit(2);
+    }
+    errno = 0;
+    struct dirent *dir;
+    // Change current working directory to path to get the full filename to avoid stat: No such file or directory error. 
+    // dirp->d_name is the name of the file in the directory:
+    // Without changing the current working directory stat() is trying to access a file in a folder("./demoFile.js") instead of ("./demo/demoFile.js")
+    chdir(path);
     while ((dir = readdir(dirp)) != NULL)
     {
-        if (stat(dir->d_name, &fileStatus) == -1)
-        {
-            perror("stat");
-            exit(1);
-        }
         if (!flagA && dir->d_name[0] == '.')
         {
-            // ignore hidden files when not using -a or -l
+            // Ignore hidden files when not using -a
             continue;
+        }
+        if (stat(dir->d_name, &fileInfo) == -1)
+        {
+            perror("stat");
+            exit(3);
         }
         if (flagL)
         {
-            // file permissions
-            printf((S_ISDIR(fileStatus.st_mode)) ? "d" : "-");
-            printf((fileStatus.st_mode & S_IRUSR) ? "r" : "-");
-            printf((fileStatus.st_mode & S_IWUSR) ? "w" : "-");
-            printf((fileStatus.st_mode & S_IXUSR) ? "x" : "-");
-            printf((fileStatus.st_mode & S_IRGRP) ? "r" : "-");
-            printf((fileStatus.st_mode & S_IWGRP) ? "w" : "-");
-            printf((fileStatus.st_mode & S_IXGRP) ? "x" : "-");
-            printf((fileStatus.st_mode & S_IROTH) ? "r" : "-");
-            printf((fileStatus.st_mode & S_IWOTH) ? "w" : "-");
-            printf((fileStatus.st_mode & S_IXOTH) ? "x" : "-");
-            printf(" %lu", fileStatus.st_nlink);
-
-            // owner
-            // use fileStatus.st_uid from inode 7 to get User name
-            struct passwd *owner = getpwuid(fileStatus.st_uid);
-            if (owner != NULL)
-            {
-                printf(" %s", owner->pw_name);
-            }
-            else
-            {
-                perror("getpwuid");
-            }
-            // group
-            // use fileStatus.st_gid from inode 7 to get group name
-            struct group *grp = getgrgid(fileStatus.st_gid);
-            if (grp != NULL)
-            {
-                printf(" %s", grp->gr_name);
-            }
-            else
-            {
-                perror("getgrgid");
-            }
-            // size
-            printf(" %lu", fileStatus.st_size);
-            // modification time
-            time_t modTime = fileStatus.st_mtime;
-            char formattedTime[PATH_MAX];
-            // "%b %d %R" fromat fro maonth in short, date and 24 hour time
-            if (strftime(formattedTime, sizeof(formattedTime), "%b %d %R", localtime(&modTime)))
-            {
-                printf(" %s", formattedTime);
-            }
-            else
-            {
-                // strftime may return value 0 but does not necessarily indicate an error.
-                fprintf(stderr, "strftime failed\n");
-            }
+            // Print file details
+            printFileDetails(dir->d_name, fileInfo);
         }
-        // file name
-        printf(" %s\n", dir->d_name);
     }
     // close dir
-    closedir(dirp);
+    if (closedir(dirp) != 0)
+    {
+        perror("closedir");
+        exit(4);
+    }
     return 0;
 }

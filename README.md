@@ -1,3 +1,3 @@
 Authors: Miriam Bamaca, Kusuma Kumar
 Known Bugs:
-Resources: https://stackoverflow.com/questions/2604453/stat-get-group-name-is-root
+Resources: https://stackoverflow.com/questions/8268316/how-to-retrieve-the-user-name-from-the-user-id, TA sessions with John , https://stackoverflow.com/questions/5125919/stat-error-no-such-file-or-directory-when-file-name-is-returned-by-readdir
