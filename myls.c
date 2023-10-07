@@ -16,6 +16,7 @@
 #include <grp.h>
 #include <time.h>
 #include <stdbool.h>
+#include <errno.h>
 
 void printFileDetails(const char *path, struct stat fileInfo)
 {
@@ -34,7 +35,7 @@ void printFileDetails(const char *path, struct stat fileInfo)
     printf((fileInfo.st_mode & S_IWOTH) ? "w" : "-");
     printf((fileInfo.st_mode & S_IXOTH) ? "x" : "-");
     // links
-    printf(" %hu", fileInfo.st_nlink);
+    printf(" %lu", fileInfo.st_nlink);
 
     // owner
     errno = 0;
@@ -59,7 +60,7 @@ void printFileDetails(const char *path, struct stat fileInfo)
         exit(6);
     }
     // size
-    printf(" %lld", fileInfo.st_size);
+    printf(" %ld", fileInfo.st_size);
     // modification time
     time_t modTime = fileInfo.st_mtime;
     char formattedTime[PATH_MAX];
@@ -73,8 +74,6 @@ void printFileDetails(const char *path, struct stat fileInfo)
         // strftime may return value 0 but does not necessarily indicate an error.
         fprintf(stderr, "strftime failed\n");
     }
-    // Print file name
-    printf(" %s\n", path);
 }
 
 int main(int argc, char *argv[])
@@ -96,8 +95,6 @@ int main(int argc, char *argv[])
         case 'l':
             /* List all files non hidden files with details*/
             flagL = true;
-            break;
-        case '?':
             break;
         default:
             // list all non hidden file-names
@@ -149,6 +146,8 @@ int main(int argc, char *argv[])
             // Print file details
             printFileDetails(dir->d_name, fileInfo);
         }
+        // Print file name
+        printf(" %s\n", dir->d_name);
     }
     // close dir
     if (closedir(dirp) != 0)
