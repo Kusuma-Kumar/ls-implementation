@@ -18,7 +18,16 @@
 #include <stdbool.h>
 #include <errno.h>
 
+struct Node {
+    char *data;
+    struct Node *next;
+};
+
+void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo);
 void printFileDetails(const char *path, struct stat fileInfo);
+void insertNode(struct Node **head, char *data);
+void freeList(struct Node *head);
+void printLinkedList(struct Node *head);
 
 
 int main(int argc, char *argv[])
@@ -26,9 +35,9 @@ int main(int argc, char *argv[])
     int opt;
     bool showHiddenFiles = false;
     bool showFileInfo = false;
+    //Using a linked list to store non-option file names
+    struct Node *nonOptionalArgs = NULL;
 
-    // optind=0;
-    //printf("optind: %d\n", optind);
     while ((opt = getopt(argc, argv, "la")) != -1)
     {
         switch (opt)
@@ -42,22 +51,57 @@ int main(int argc, char *argv[])
             showFileInfo = true;
             break;
         case '?':
-            printf(" %s\n", "unrecognized non-option argument");
+            printf(" %s\n", "unrecognized option argument");
             exit(7);
         default:
             // list all non hidden file-names
             break;
         }
     }
-    //printf("optind: %d\n", optind);
-    char *path = (optind < argc) ? argv[optind] : ".";
+
+    while (optind < argc) {
+        char *tempPath = argv[optind];
+        struct stat fileInfo;
+        // check if file/dir exists before adding it to linkedList
+        if (stat(tempPath, &fileInfo) == -1)
+        {
+            perror("stat");
+            exit(8);
+        }
+        insertNode(&nonOptionalArgs, argv[optind]);
+        optind++; // Move to the next argument
+    }
+
+    if (nonOptionalArgs == NULL ) 
+    {
+        // If there are no non-option arguments, list the current directory
+        listFiles(".", showHiddenFiles, showFileInfo);
+        return 0;
+    }
+
+    // printLinkedList(nonOptionalArgs);
+    struct Node *current = nonOptionalArgs;
+    
+    while (current != NULL) {
+        listFiles(current->data, showHiddenFiles, showFileInfo);
+        current = current->next;
+    }
+
+    freeList(nonOptionalArgs);
+
+    return 0;
+}
+
+
+
+void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo) {
     struct stat fileInfo;
     if (stat(path, &fileInfo) == -1)
     {
         perror("stat");
         exit(1);
     }
-    // check if path given is a file, S_ISREG returns 0 is it is not a regular file
+    // check if path given is a file, S_ISREG returns 0 if it is not a regular file
     if (S_ISREG(fileInfo.st_mode) != 0)
     {
         if(showFileInfo == false){
@@ -100,13 +144,11 @@ int main(int argc, char *argv[])
             printf(" %s\n", dir->d_name);
         }
     }
-    // close dir
     if (closedir(dirp) != 0)
     {
         perror("closedir");
         exit(4);
     }
-    return 0;
 }
 
 
@@ -156,3 +198,53 @@ void printFileDetails(const char *path, struct stat fileInfo)
     }
     printf(" %s\n", path);
 }
+
+
+
+
+void insertNode(struct Node **head, char *data) {
+    struct Node *newNode;
+     ;
+    if((newNode = (struct Node *)malloc(sizeof(struct Node))) == NULL){
+        perror("malloc");
+        exit(9);
+    }
+    newNode->data = strdup(data);  // Make a copy of the data
+    newNode->next = NULL;
+
+    if (*head == NULL) {
+        *head = newNode;
+    } else {
+        struct Node *current = *head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = newNode;
+    }
+}
+
+
+
+
+void freeList(struct Node *head) {
+    struct Node *current = head;
+    while (current != NULL) {
+        struct Node *next = current->next;
+        free(current->data);
+        free(current);
+        current = next;
+    }
+}
+
+
+
+
+void printLinkedList(struct Node *head) {
+    struct Node *current = head;
+    while (current != NULL) {
+        printf("%s\n", current->data);
+        current = current->next;
+    }
+}
+
+
