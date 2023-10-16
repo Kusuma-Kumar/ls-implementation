@@ -6,6 +6,7 @@
 // figure out which path when absolute path is given, not(relative path)
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <getopt.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -106,11 +107,11 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo) {
     {
         if(showFileInfo == false){
             printf(" %s\n", path);
-            return 0;
+            return;
         } else {
             // If it's a regular file print its details
             printFileDetails(path, fileInfo);
-            return 0;
+            return;
         }
     }
     DIR *dirp = NULL;
@@ -149,6 +150,8 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo) {
         perror("closedir");
         exit(4);
     }
+    // change current path to parent directory because we used chdir 
+    chdir("..");
 }
 
 
