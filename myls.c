@@ -19,7 +19,7 @@
 #include <stdbool.h>
 #include <errno.h>
 
-struct Node {
+struct Node{
     char *data;
     struct Node *next;
 };
@@ -30,81 +30,72 @@ void insertNode(struct Node **head, char *data);
 void freeList(struct Node *head);
 void printLinkedList(struct Node *head);
 
-
 int main(int argc, char *argv[])
 {
     int opt;
     bool showHiddenFiles = false;
     bool showFileInfo = false;
     //Using a linked list to store non-option file names
-    struct Node *nonOptionalArgs = NULL;
+    struct Node *filesAndDirectories = NULL;
 
-    while ((opt = getopt(argc, argv, "la")) != -1)
-    {
-        switch (opt)
-        {
-        case 'a':
-            /* List all files, including hidden */
-            showHiddenFiles = true;
-            break;
-        case 'l':
-            /* List all files non hidden files with details*/
-            showFileInfo = true;
-            break;
-        case '?':
-            printf(" %s\n", "unrecognized option argument");
-            exit(7);
-        default:
-            // list all non hidden file-names
-            break;
+    while ((opt = getopt(argc, argv, "la")) != -1){
+        switch (opt){
+            case 'a':
+                /* List all files, including hidden */
+                showHiddenFiles = true;
+                break;
+            case 'l':
+                /* List all files non hidden files with details*/
+                showFileInfo = true;
+                break;
+            case '?':
+                printf(" %s\n", "unrecognized option argument");
+            default:
+                // list all non hidden file-names
+                break;
         }
     }
 
-    while (optind < argc) {
+    while (optind < argc){
+        // save all the file and/or directories in a linkedList
         char *tempPath = argv[optind];
         struct stat fileInfo;
         // check if file/dir exists before adding it to linkedList
-        if (stat(tempPath, &fileInfo) == -1)
-        {
+        if (stat(tempPath, &fileInfo) == -1){
             perror("stat");
-            exit(8);
         }
-        insertNode(&nonOptionalArgs, argv[optind]);
+        insertNode(&filesAndDirectories, argv[optind]);
         optind++; // Move to the next argument
     }
 
-    if (nonOptionalArgs == NULL ) 
-    {
+    if (filesAndDirectories == NULL){
         // If there are no non-option arguments, list the current directory
         listFiles(".", showHiddenFiles, showFileInfo);
         return 0;
     }
 
-    // printLinkedList(nonOptionalArgs);
-    struct Node *current = nonOptionalArgs;
+    // printLinkedList(filesAndDirectories);
+    struct Node *current = filesAndDirectories;
     
-    while (current != NULL) {
+    while (current != NULL){
         listFiles(current->data, showHiddenFiles, showFileInfo);
         current = current->next;
     }
 
-    freeList(nonOptionalArgs);
+    freeList(filesAndDirectories);
 
     return 0;
 }
 
-
-
-void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo) {
+void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
     struct stat fileInfo;
-    if (stat(path, &fileInfo) == -1)
-    {
+
+    if (stat(path, &fileInfo) == -1){
         perror("stat");
-        exit(1);
     }
+
     // check if path given is a file, S_ISREG returns 0 if it is not a regular file
-    if (S_ISREG(fileInfo.st_mode) != 0)
-    {
+    if (S_ISREG(fileInfo.st_mode) != 0){
         if(showFileInfo == false){
             printf(" %s\n", path);
             return;
@@ -114,11 +105,10 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo) {
             return;
         }
     }
+
     DIR *dirp = NULL;
-    if ((dirp = opendir(path)) == NULL)
-    {
+    if ((dirp = opendir(path)) == NULL){
         perror("opendir");
-        exit(2);
     }
     errno = 0;
     struct dirent *dir;
@@ -126,35 +116,29 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo) {
     // dirp->d_name is the name of the file in the directory:
     // Without changing the current working directory stat() is trying to access a file in a folder("./demoFile.js") instead of ("./demo/demoFile.js")
     chdir(path);
-    while ((dir = readdir(dirp)) != NULL)
-    {
-        if (!showHiddenFiles && dir->d_name[0] == '.')
-        {
+
+    while ((dir = readdir(dirp)) != NULL){
+        if (!showHiddenFiles && dir->d_name[0] == '.'){
             // Ignore hidden files when not using -a
             continue;
         }
-        if (stat(dir->d_name, &fileInfo) == -1)
-        {
+        if (stat(dir->d_name, &fileInfo) == -1){
             perror("stat");
-            exit(3);
         }
-        if (showFileInfo)
-        {
+        if (showFileInfo){
             printFileDetails(dir->d_name, fileInfo);
         }else{
             printf(" %s\n", dir->d_name);
         }
     }
-    if (closedir(dirp) != 0)
-    {
+
+    if (closedir(dirp) != 0){
         perror("closedir");
-        exit(4);
     }
     // change current path to parent directory because we used chdir 
     chdir("..");
+    printf("\n");
 }
-
-
 
 void printFileDetails(const char *path, struct stat fileInfo)
 {
@@ -171,46 +155,40 @@ void printFileDetails(const char *path, struct stat fileInfo)
     printf((fileInfo.st_mode & S_IWOTH) ? "w" : "-");
     printf((fileInfo.st_mode & S_IXOTH) ? "x" : "-");
     printf(" %lu", fileInfo.st_nlink);
+    
     errno = 0;
-    if ((owner = getpwuid(fileInfo.st_uid)) != NULL)
-    {
+    if ((owner = getpwuid(fileInfo.st_uid)) != NULL){
         printf(" %s", owner->pw_name);
     }else{
         // should print numerical version of UID if getpwuid fails
         printf(" %u", fileInfo.st_uid);
     }
+    
     errno = 0;
-    if ((grp = getgrgid(fileInfo.st_gid)) != NULL)
-    {
+    if ((grp = getgrgid(fileInfo.st_gid)) != NULL){
         printf(" %s", grp->gr_name);
     }else{
         // should print numerical version of GID if getgrgid fails
         printf(" %u", fileInfo.st_gid);
     }
+    
     time_t modTime = fileInfo.st_mtime;
     char formattedTime[PATH_MAX];
     // "%b %d %R" fromat for month in short, date and 24 hour time
-    if (strftime(formattedTime, sizeof(formattedTime), "%b %d %R", localtime(&modTime)))
-    {
+    if (strftime(formattedTime, sizeof(formattedTime), "%b %d %R", localtime(&modTime))){
         printf(" %s", formattedTime);
-    }
-    else
-    {
+    }else{
         // strftime may return value 0 but does not necessarily indicate an error.
         fprintf(stderr, "strftime failed\n");
     }
+    
     printf(" %s\n", path);
 }
 
-
-
-
 void insertNode(struct Node **head, char *data) {
     struct Node *newNode;
-     ;
     if((newNode = (struct Node *)malloc(sizeof(struct Node))) == NULL){
         perror("malloc");
-        exit(9);
     }
     newNode->data = strdup(data);  // Make a copy of the data
     newNode->next = NULL;
@@ -226,9 +204,6 @@ void insertNode(struct Node **head, char *data) {
     }
 }
 
-
-
-
 void freeList(struct Node *head) {
     struct Node *current = head;
     while (current != NULL) {
@@ -238,9 +213,6 @@ void freeList(struct Node *head) {
         current = next;
     }
 }
-
-
-
 
 void printLinkedList(struct Node *head) {
     struct Node *current = head;
