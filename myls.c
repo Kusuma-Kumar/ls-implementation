@@ -63,8 +63,10 @@ int main(int argc, char *argv[])
         // check if file/dir exists before adding it to linkedList
         if (stat(tempPath, &fileInfo) == -1){
             perror("stat");
+        }else{
+            insertNode(&filesAndDirectories, argv[optind]);
         }
-        insertNode(&filesAndDirectories, argv[optind]);
+        // printf("Path adding to linkedList is %s\n",argv[optind]);
         optind++; // Move to the next argument
     }
 
@@ -106,6 +108,15 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
         }
     }
 
+    // print the name of directory before entering to list all its files
+    printf("\n%s:\n", path);
+    
+    //saving the current working directory so defore i go into my directories so i can always come back to initial directory
+    char workingDir[PATH_MAX];
+    if (getcwd(workingDir, sizeof(workingDir)) == NULL) {
+        perror("getcwd");
+    }
+    
     DIR *dirp = NULL;
     if ((dirp = opendir(path)) == NULL){
         perror("opendir");
@@ -116,7 +127,7 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
     // dirp->d_name is the name of the file in the directory:
     // Without changing the current working directory stat() is trying to access a file in a folder("./demoFile.js") instead of ("./demo/demoFile.js")
     chdir(path);
-
+    
     while ((dir = readdir(dirp)) != NULL){
         if (!showHiddenFiles && dir->d_name[0] == '.'){
             // Ignore hidden files when not using -a
@@ -135,8 +146,8 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
     if (closedir(dirp) != 0){
         perror("closedir");
     }
-    // change current path to parent directory because we used chdir 
-    chdir("..");
+    // change current path to initial working directory since we used chdir to move into other directories
+    chdir(workingDir);
     printf("\n");
 }
 
