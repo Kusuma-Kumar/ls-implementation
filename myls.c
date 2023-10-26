@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     int opt;
     bool showHiddenFiles = false;
     bool showFileInfo = false;
-    //Using a linked list to store non-option file names
+    //Using a linked list to store file/ directory names user has entered
     struct Node *filesAndDirectories = NULL;
 
     while ((opt = getopt(argc, argv, "la")) != -1){
@@ -56,8 +56,8 @@ int main(int argc, char *argv[])
         }
     }
 
+    // save all the file and/or directories in a linkedList
     while (optind < argc){
-        // save all the file and/or directories in a linkedList
         char *tempPath = argv[optind];
         struct stat fileInfo;
         // check if file/dir exists before adding it to linkedList
@@ -76,9 +76,9 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // printLinkedList(filesAndDirectories);
     struct Node *current = filesAndDirectories;
     
+    // loop through all requested files and directories and print user request based on flags
     while (current != NULL){
         listFiles(current->data, showHiddenFiles, showFileInfo);
         current = current->next;
@@ -111,7 +111,7 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
     // print the name of directory before entering to list all its files
     printf("\n%s:\n", path);
     
-    //saving the current working directory so defore i go into my directories so i can always come back to initial directory
+    //saving the current working directory so before i go into my directories so i can always come back to initial directory
     char workingDir[PATH_MAX];
     if (getcwd(workingDir, sizeof(workingDir)) == NULL) {
         perror("getcwd");
