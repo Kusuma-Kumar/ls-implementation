@@ -24,7 +24,7 @@ struct Node{
     struct Node *next;
 };
 
-void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo);
+void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo, int sizeOfFilesAndDirectories);
 void printFileDetails(const char *path, struct stat fileInfo);
 void insertNode(struct Node **head, char *data);
 void freeList(struct Node *head);
@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
     bool showFileInfo = false;
     //Using a linked list to store file/ directory names user has entered
     struct Node *filesAndDirectories = NULL;
+    int sizeOfFilesAndDirectories = 0;
 
     while ((opt = getopt(argc, argv, "la")) != -1){
         switch (opt){
@@ -49,7 +50,11 @@ int main(int argc, char *argv[])
                 showFileInfo = true;
                 break;
             case '?':
-                printf(" %s\n", "unrecognized option argument");
+                // I want to exit entirely based on what the real ls does. ex:ls -j .git
+                // ls: invalid option -- 'j'
+                printf(" %s\n", "ls: invalid option");
+                exit(1);
+                break;
             default:
                 // list all non hidden file-names
                 break;
@@ -63,16 +68,20 @@ int main(int argc, char *argv[])
         // check if file/dir exists before adding it to linkedList
         if (stat(tempPath, &fileInfo) == -1){
             perror("stat");
+            exit(2);
         }else{
             insertNode(&filesAndDirectories, argv[optind]);
+            sizeOfFilesAndDirectories += 1;
         }
         // printf("Path adding to linkedList is %s\n",argv[optind]);
         optind++; // Move to the next argument
     }
 
+    // printf("%d\n",sizeOfFilesAndDirectories);
+
     if (filesAndDirectories == NULL){
         // If there are no non-option arguments, list the current directory
-        listFiles(".", showHiddenFiles, showFileInfo);
+        listFiles(".", showHiddenFiles, showFileInfo, sizeOfFilesAndDirectories);
         return 0;
     }
 
@@ -80,7 +89,7 @@ int main(int argc, char *argv[])
     
     // loop through all requested files and directories and print user request based on flags
     while (current != NULL){
-        listFiles(current->data, showHiddenFiles, showFileInfo);
+        listFiles(current->data, showHiddenFiles, showFileInfo, sizeOfFilesAndDirectories);
         current = current->next;
     }
 
@@ -89,11 +98,12 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
+void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo, int sizeOfFilesAndDirectories){
     struct stat fileInfo;
 
     if (stat(path, &fileInfo) == -1){
         perror("stat");
+        exit(3);
     }
 
     // check if path given is a file, S_ISREG returns 0 if it is not a regular file
@@ -108,25 +118,32 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
         }
     }
 
-    // print the name of directory before entering to list all its files
-    printf("\n%s:\n", path);
+    // print the name of directory before entering to list all its files only if more than one directory/files are requested
+    if(sizeOfFilesAndDirectories > 1) {
+        printf("\n%s:\n", path);
+    }
     
     //saving the current working directory so before i go into my directories so i can always come back to initial directory
     char workingDir[PATH_MAX];
     if (getcwd(workingDir, sizeof(workingDir)) == NULL) {
         perror("getcwd");
+        exit(4);
     }
     
     DIR *dirp = NULL;
     if ((dirp = opendir(path)) == NULL){
         perror("opendir");
+        exit(5);
     }
     errno = 0;
     struct dirent *dir;
     // Change current working directory to path to get the full filename to avoid stat: No such file or directory error. 
     // dirp->d_name is the name of the file in the directory:
     // Without changing the current working directory stat() is trying to access a file in a folder("./demoFile.js") instead of ("./demo/demoFile.js")
-    chdir(path);
+    if(chdir(path) == -1){
+        perror("chdir");
+        exit(7);
+    }
     
     while ((dir = readdir(dirp)) != NULL){
         if (!showHiddenFiles && dir->d_name[0] == '.'){
@@ -135,6 +152,7 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
         }
         if (stat(dir->d_name, &fileInfo) == -1){
             perror("stat");
+            exit(6);
         }
         if (showFileInfo){
             printFileDetails(dir->d_name, fileInfo);
@@ -146,8 +164,13 @@ void listFiles(const char *path, bool showHiddenFiles, bool showFileInfo){
     if (closedir(dirp) != 0){
         perror("closedir");
     }
+
     // change current path to initial working directory since we used chdir to move into other directories
-    chdir(workingDir);
+    if(chdir(workingDir) == -1){
+        perror("chdir");
+        exit(8);
+    }
+    
     printf("\n");
 }
 
@@ -200,6 +223,7 @@ void insertNode(struct Node **head, char *data) {
     struct Node *newNode;
     if((newNode = (struct Node *)malloc(sizeof(struct Node))) == NULL){
         perror("malloc");
+        exit(10);
     }
     newNode->data = strdup(data);  // Make a copy of the data
     newNode->next = NULL;
