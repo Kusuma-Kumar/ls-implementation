@@ -38,6 +38,9 @@ int main(int argc, char *argv[]) {
     // Using a linked list to store file/ directory names user has entered
     struct Node *filesAndDirectories = NULL;
     int sizeOfFilesAndDirectories = 0;
+    // if I provided only one argument but I got a stat error, 
+    // I want to exit entirely instead of trying to print files in current directory
+    int statErrorCount = 0;
 
     // loop though all option arguments provided
     while ((opt = getopt(argc, argv, "la")) != -1) {
@@ -69,6 +72,7 @@ int main(int argc, char *argv[]) {
         // check if file/dir exists before adding it to linkedList
         if (stat(tempPath, &fileInfo) == -1) {
             perror("stat");
+            statErrorCount += 1;
         } else {
             insertNode(&filesAndDirectories, argv[optind]);
             sizeOfFilesAndDirectories += 1;
@@ -77,18 +81,20 @@ int main(int argc, char *argv[]) {
         optind++; // Move to the next argument
     }
 
-    if (filesAndDirectories == NULL) {
+    if (sizeOfFilesAndDirectories == 0 && statErrorCount != 1) {
         // If there are no non-option arguments, list the current directory
         listFiles(".", showHiddenFiles, showFileInfo, sizeOfFilesAndDirectories);
         return 0;
-    }
-
-    struct Node *current = filesAndDirectories;
     
-    // loop through all requested files and directories and print user request based on flags
-    while (current != NULL) {
-        listFiles(current->data, showHiddenFiles, showFileInfo, sizeOfFilesAndDirectories);
-        current = current->next;
+    } else {
+        struct Node *current = filesAndDirectories;
+        
+        // loop through all requested files and directories and print user request based on flags
+        while (current != NULL) {
+            listFiles(current->data, showHiddenFiles, showFileInfo, sizeOfFilesAndDirectories);
+            current = current->next;
+        }
+
     }
 
     freeList(filesAndDirectories);
