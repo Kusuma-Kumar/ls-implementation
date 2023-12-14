@@ -14,7 +14,7 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <limits.h>
+#include <linux/limits.h>
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
